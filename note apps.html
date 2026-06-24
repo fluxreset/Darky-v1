@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OLED Gold Notes</title>
+    <style>
+        :root {
+            --bg-oled: #000000;
+            --bg-sidebar: #0f0f0f;
+            --text-gold: #FFD700;
+            --text-secondary: #BDBDBD;
+            --btn-red: #E60000; 
+            --btn-red-hover: #FF1A1A;
+            --border-color: #333300;
+            --highlight-bg: #1a1a00;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-oled);
+            color: var(--text-gold);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        button {
+            background-color: var(--btn-red);
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            width: 100%;
+            transition: background-color 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(230, 0, 0, 0.2);
+        }
+
+        button:hover {
+            background-color: var(--btn-red-hover);
+        }
+
+        .note-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .note-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #1a1a1a;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .note-item:hover {
+            background-color: #111111;
+        }
+
+        .note-item.active {
+            background-color: var(--highlight-bg);
+            border-left: 4px solid var(--text-gold);
+        }
+
+        .note-item-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-gold);
+        }
+
+        .note-item-body {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .editor {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            background-color: var(--bg-oled);
+        }
+
+        .editor-title {
+            background: transparent;
+            border: none;
+            color: var(--text-gold);
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        .editor-title::placeholder {
+            color: rgba(255, 215, 0, 0.3);
+        }
+
+        .editor-body {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #E0E0E0;
+            font-size: 1.1em;
+            line-height: 1.6;
+            outline: none;
+            resize: none;
+        }
+
+        .editor-body::placeholder {
+            color: #555;
+        }
+        
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <button id="addNoteBtn">+ Buat Catatan Baru</button>
+        </div>
+        <div class="note-list" id="noteList"></div>
+    </div>
+
+    <div class="editor" id="editor" style="display: none;">
+        <input type="text" class="editor-title" id="noteTitle" placeholder="Judul Catatan...">
+        <textarea class="editor-body" id="noteBody" placeholder="Mulai mengetik catatanmu di sini..."></textarea>
+    </div>
+    
+    <div class="empty-state" id="emptyState">
+        Pilih atau buat catatan baru untuk mulai menulis.
+    </div>
+
+    <script>
+        let notes = JSON.parse(localStorage.getItem('oledGoldNotes')) || [];
+        let activeNoteId = null;
+
+        const noteList = document.getElementById('noteList');
+        const addNoteBtn = document.getElementById('addNoteBtn');
+        const editor = document.getElementById('editor');
+        const emptyState = document.getElementById('emptyState');
+        const noteTitle = document.getElementById('noteTitle');
+        const noteBody = document.getElementById('noteBody');
+
+        function init() {
+            renderNotes();
+            if (notes.length > 0) {
+                setActiveNote(notes[0].id);
+            } else {
+                editor.style.display = 'none';
+                emptyState.style.display = 'flex';
+            }
+        }
+
+        function saveNotes() {
+            localStorage.setItem('oledGoldNotes', JSON.stringify(notes));
+            renderNotes();
+        }
+
+        function renderNotes() {
+            noteList.innerHTML = '';
+            notes.forEach(note => {
+                const div = document.createElement('div');
+                div.className = `note-item ${note.id === activeNoteId ? 'active' : ''}`;
+                div.onclick = () => setActiveNote(note.id);
+                
+                div.innerHTML = `
+                    <div class="note-item-title">${note.title || 'Catatan Tanpa Judul'}</div>
+                    <div class="note-item-body">${note.body || 'Tidak ada konten...'}</div>
+                `;
+                noteList.appendChild(div);
+            });
+        }
+
+        addNoteBtn.addEventListener('click', () => {
+            const newNote = {
+                id: Date.now(),
+                title: '',
+                body: ''
+            };
+            notes.unshift(newNote);
+            saveNotes();
+            setActiveNote(newNote.id);
+            noteTitle.focus();
+        });
+
+        function setActiveNote(id) {
+            activeNoteId = id;
+            const note = notes.find(n => n.id === id);
+            
+            if (note) {
+                editor.style.display = 'flex';
+                emptyState.style.display = 'none';
+                noteTitle.value = note.title;
+                noteBody.value = note.body;
+                renderNotes();
+            }
+        }
+
+        function updateNote() {
+            if (!activeNoteId) return;
+            
+            const note = notes.find(n => n.id === activeNoteId);
+            if (note) {
+                note.title = noteTitle.value;
+                note.body = noteBody.value;
+                saveNotes();
+            }
+        }
+
+        noteTitle.addEventListener('input', updateNote);
+        noteBody.addEventListener('input', updateNote);
+
+        init();
+    </script>
+</body>
+</html>
