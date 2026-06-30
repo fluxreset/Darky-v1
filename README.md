@@ -1,2 +1,2 @@
-# Darky-v1
-note taking apps
+# Glacer
+a note taking apps
